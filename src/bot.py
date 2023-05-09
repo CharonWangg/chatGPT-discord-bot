@@ -31,10 +31,7 @@ async def send_message(message, user_message):
     try:
         response = (f'> **{user_message}** - <@{str(author)}' + '> \n\n')
         chat_model = os.getenv("CHAT_MODEL")
-        if chat_model == "OFFICIAL":
-            response = f"{response}{await responses.official_handle_response(user_message)}"
-        elif chat_model == "UNOFFICIAL":
-            response = f"{response}{await responses.unofficial_handle_response(user_message)}"
+        response = f"{response}{await responses.official_handle_response(user_message)}"
         char_limit = 1900
         if len(response) > char_limit:
             # Split the response into smaller chunks of no more than 1900 characters each(Discord limit is 2000 per chunk)
@@ -106,12 +103,8 @@ async def send_start_prompt(client):
                 prompt = f.read()
                 if (discord_channel_id):
                     logger.info(f"Send starting prompt with size {len(prompt)}")
-                    chat_model = os.getenv("CHAT_MODEL")
                     response = ""
-                    if chat_model == "OFFICIAL":
-                        response = f"{response}{await responses.official_handle_response(prompt)}"
-                    elif chat_model == "UNOFFICIAL":
-                        response = f"{response}{await responses.unofficial_handle_response(prompt)}"
+                    response = f"{response}{await responses.official_handle_response(prompt)}"
                     channel = client.get_channel(int(discord_channel_id))
                     await channel.send(response)
                     logger.info(f"Starting prompt response:{response}")
@@ -201,32 +194,21 @@ def run_discord_bot():
 
     @client.tree.command(name="chat-model", description="Switch different chat model")
     @app_commands.choices(choices=[
-        app_commands.Choice(name="Official GPT-3.5", value="OFFICIAL"),
-        app_commands.Choice(name="Website ChatGPT", value="UNOFFICIAL")
+        app_commands.Choice(name="GPT-3.5", value="GPT35"),
+        app_commands.Choice(name="GPT-4", value="GPT4")
     ])
     async def chat_model(interaction: discord.Interaction, choices: app_commands.Choice[str]):
         await interaction.response.defer(ephemeral=False)
-        if choices.value == "OFFICIAL":
-            responses.chatbot = responses.get_chatbot_model("OFFICIAL")
-            os.environ["CHAT_MODEL"] = "OFFICIAL"
-            await interaction.followup.send(
-                "> **Info: You are now in Official GPT-3.5 model.**\n> You need to set your `OPENAI_API_KEY` in `env` file.")
-            logger.warning("\x1b[31mSwitch to OFFICIAL chat model\x1b[0m")
-        elif choices.value == "UNOFFICIAL":
-            responses.chatbot = responses.get_chatbot_model("UNOFFICIAL")
-            os.environ["CHAT_MODEL"] = "UNOFFICIAL"
-            await interaction.followup.send(
-                "> **Info: You are now in Website ChatGPT model.**\n> You need to set your `SESSION_TOKEN` or `OPENAI_EMAIL` and `OPENAI_PASSWORD` in `env` file.")
-            logger.warning("\x1b[31mSwitch to UNOFFICIAL(Website) chat model\x1b[0m")
+        responses.chatbot = responses.get_chatbot_model(choices.value)
+        os.environ["CHAT_MODEL"] = choices.value
+        await interaction.followup.send(
+            f"> **Info: You are now in {choices.name} model.**")
+        logger.warning(f"\x1b[31mSwitch to {choices.name} chat model\x1b[0m")
 
 
     @client.tree.command(name="reset", description="Complete reset ChatGPT conversation history")
     async def reset(interaction: discord.Interaction):
-        chat_model = os.getenv("CHAT_MODEL")
-        if chat_model == "OFFICIAL":
-            responses.chatbot.reset()
-        elif chat_model == "UNOFFICIAL":
-            responses.chatbot.reset_chat()
+        responses.chatbot.reset()
         await interaction.response.defer(ephemeral=False)
         await interaction.followup.send("> **Info: I have forgotten everything.**")
         personas.current_persona = "standard"
@@ -256,8 +238,8 @@ def run_discord_bot():
         - `/replyall` ChatGPT switch between replyAll mode and default mode
         - `/reset` Clear ChatGPT conversation history
         - `/chat-model` Switch different chat model
-                `OFFICIAL`: GPT-3.5 model
-                `UNOFFICIAL`: Website ChatGPT
+                `GPT4`: GPT-4 model
+                `GPT35`: GPT-3.5-TURBO model
                 Modifying CHAT_MODEL field in the .env file change the default model
 
         For complete documentation, please visit https://github.com/Zero6992/chatGPT-discord-bot""")
@@ -343,10 +325,7 @@ def run_discord_bot():
 
         elif persona == "standard":
             chat_model = os.getenv("CHAT_MODEL")
-            if chat_model == "OFFICIAL":
-                responses.chatbot.reset()
-            elif chat_model == "UNOFFICIAL":
-                responses.chatbot.reset_chat()
+            responses.chatbot.reset()
 
             personas.current_persona = "standard"
             await interaction.followup.send(
